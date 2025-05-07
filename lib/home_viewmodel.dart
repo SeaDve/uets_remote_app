@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:network_info_plus/network_info_plus.dart';
 import 'package:nfc_manager/nfc_manager.dart';
 import 'package:nfc_manager/platform_tags.dart';
 import 'package:uets_remote_app/main.dart';
@@ -57,7 +58,7 @@ class HomeViewModel extends ChangeNotifier {
   Future<void> _startServer() async {
     try {
       final server = await HttpServer.bind(InternetAddress.anyIPv4, port);
-      _ipAddress = server.address.address;
+      _ipAddress = await NetworkInfo().getWifiIP();
       notifyListeners();
 
       await for (final request in server) {
@@ -77,9 +78,11 @@ class HomeViewModel extends ChangeNotifier {
                 final properties =
                     incoming['Properties'] as Map<String, dynamic>;
 
-                if (properties['nInside'] != null) {
-                  _nInside = properties['nInside'] as int;
+                if (properties['NInside'] != null) {
+                  _nInside = properties['NInside'] as int;
                 }
+
+                notifyListeners();
               } else {
                 _setError("Unknown message format");
               }

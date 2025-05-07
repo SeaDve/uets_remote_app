@@ -47,11 +47,20 @@ class _HomeState extends State<Home> {
             ],
 
             if (widget._viewModel.nInside != null)
-              Text(
-                'Inside Count: ${widget._viewModel.nInside}',
-                style: const TextStyle(fontSize: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  spacing: 5,
+                  children: [
+                    Text('Total Inside Count:'),
+                    SelectableText(
+                      widget._viewModel.nInside.toString(),
+                      style: const TextStyle(fontSize: 40),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
-
             Scanner(
               onDetect: (result) async {
                 final code = result.barcodes.firstOrNull?.rawValue;
@@ -85,9 +94,19 @@ class _HomeState extends State<Home> {
             ),
 
             if (widget._viewModel.scanned != null)
-              ListTile(
-                title: Text('Last Scanned'),
-                subtitle: Text(widget._viewModel.scanned!),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  spacing: 5,
+                  children: [
+                    Text('Last Scanned:'),
+                    SelectableText(
+                      widget._viewModel.scanned!,
+                      style: const TextStyle(fontSize: 18),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
 
             ElevatedButton(
