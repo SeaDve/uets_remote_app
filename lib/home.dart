@@ -28,7 +28,7 @@ class _HomeState extends State<Home> {
     };
 
     return Scaffold(
-      appBar: AppBar(title: const Text('NFC Reader')),
+      appBar: AppBar(title: const Text('TRACE Scanner')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
