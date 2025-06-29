@@ -110,18 +110,6 @@ class _HomeState extends State<Home> {
                 },
               ),
 
-              if (widget._viewModel.error != null) ...[
-                Text(
-                  widget._viewModel.error!,
-                  style: TextStyle(color: Colors.red),
-                  textAlign: TextAlign.center,
-                ),
-                ElevatedButton(
-                  onPressed: widget._viewModel.clearError,
-                  child: const Text("Dismiss"),
-                ),
-              ],
-
               if (_scanMode == ScanMode.nfc)
                 RfidScanner(
                   isEnabledNotifier: isNfcEnabledNotifier,
@@ -212,34 +200,45 @@ class _HomeState extends State<Home> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
-                if (widget._viewModel.isAskingForPossessor)
-                  Row(
-                    spacing: 10,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: () {
-                          widget._viewModel.confirmAskingForPossessor();
-                          player.play(AssetSource('detected-success.mp3'));
-                        },
-                        child: Text(
-                          widget._viewModel.scannedPossessorDisplay == null
-                              ? 'Confirm without Possessor'
-                              : 'Confirm Possessor',
-                        ),
+                Row(
+                  spacing: 10,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
                       ),
-                      ElevatedButton(
-                        onPressed: () {
-                          widget._viewModel.cancelAskingForPossessor();
-                        },
-                        child: Text('Cancel'),
+                      onPressed: () {
+                        widget._viewModel.confirmAskingForPossessor();
+                        player.play(AssetSource('detected-success.mp3'));
+                      },
+                      child: Text(
+                        widget._viewModel.scannedPossessorDisplay == null
+                            ? 'Confirm without Possessor'
+                            : 'Confirm Possessor',
                       ),
-                    ],
-                  ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        widget._viewModel.cancelAskingForPossessor();
+                      },
+                      child: Text('Cancel'),
+                    ),
+                  ],
+                ),
+              ],
+
+              if (widget._viewModel.error != null) ...[
+                Text(
+                  widget._viewModel.error!,
+                  style: TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+                ElevatedButton(
+                  onPressed: widget._viewModel.clearError,
+                  child: const Text("Dismiss"),
+                ),
               ],
             ],
           ),
