@@ -22,17 +22,22 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
 
-    FlutterNfcKit.tagStream.listen((tag) {
-      final entityId = tag.id;
+    FlutterNfcKit.tagStream.listen(
+      (tag) {
+        final entityId = tag.id;
 
-      try {
-        widget._viewModel.handleEntityId(entityId);
-        widget._viewModel.clearError();
-      } catch (e) {
-        player.play(AssetSource('detected-error.mp3'));
-        widget._viewModel.setError("Error handling tag: $e");
-      }
-    });
+        try {
+          widget._viewModel.handleEntityId(entityId);
+          widget._viewModel.clearError();
+        } catch (e) {
+          player.play(AssetSource('detected-error.mp3'));
+          widget._viewModel.setError("Error handling tag: $e");
+        }
+      },
+      onError: (error) {
+        widget._viewModel.setError("NFC tag stream error: $error");
+      },
+    );
   }
 
   @override
