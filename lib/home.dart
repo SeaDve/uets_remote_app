@@ -1,9 +1,12 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
-import 'package:uets_remote_app/main.dart' show player;
-import 'package:uets_remote_app/scanner.dart';
+
+import 'main.dart' show player;
+import 'camera_scanner.dart';
+import 'rfid_scanner.dart';
 import 'home_viewmodel.dart';
+
+enum ScanMode { nfc, camera }
 
 class Home extends StatefulWidget {
   final HomeViewModel _viewModel;
@@ -16,29 +19,11 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  bool _showDetails = false; // State to toggle visibility
+  bool _showDetails = false;
 
-  @override
-  void initState() {
-    super.initState();
+  final isNfcEnabledNotifier = ValueNotifier<bool>(true);
 
-    FlutterNfcKit.tagStream.listen(
-      (tag) {
-        final entityId = tag.id;
-
-        try {
-          widget._viewModel.handleEntityId(entityId);
-          widget._viewModel.clearError();
-        } catch (e) {
-          player.play(AssetSource('detected-error.mp3'));
-          widget._viewModel.setError("Error handling tag: $e");
-        }
-      },
-      onError: (error) {
-        widget._viewModel.setError("NFC tag stream error: $error");
-      },
-    );
-  }
+  ScanMode _scanMode = ScanMode.nfc;
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +96,20 @@ class _HomeState extends State<Home> {
                 ],
               ),
 
+              SegmentedButton(
+                segments: const [
+                  ButtonSegment(value: ScanMode.nfc, label: Text('NFC')),
+                  ButtonSegment(value: ScanMode.camera, label: Text('Camera')),
+                ],
+                selected: {_scanMode},
+                onSelectionChanged: (newSelection) {
+                  setState(() {
+                    _scanMode = newSelection.first;
+                    isNfcEnabledNotifier.value = _scanMode == ScanMode.nfc;
+                  });
+                },
+              ),
+
               if (widget._viewModel.error != null) ...[
                 Text(
                   widget._viewModel.error!,
@@ -123,26 +122,46 @@ class _HomeState extends State<Home> {
                 ),
               ],
 
-              Scanner(
-                onDetect: (code) async {
-                  try {
-                    if (isUetsQrFormat(code)) {
-                      widget._viewModel.handleEntityId(entityIdFromCode(code));
-                    } else {
-                      widget._viewModel.handleCode(code);
+              if (_scanMode == ScanMode.nfc)
+                RfidScanner(
+                  isEnabledNotifier: isNfcEnabledNotifier,
+                  onDetect: (entityId) {
+                    try {
+                      widget._viewModel.handleEntityId(entityId);
+                      widget._viewModel.clearError();
+                      player.play(AssetSource('detected-success.mp3'));
+                      return true;
+                    } catch (e) {
+                      player.play(AssetSource('detected-error.mp3'));
+                      widget._viewModel.setError("Error handling tag: $e");
+                      return false;
                     }
-                    widget._viewModel.clearError();
-                  } on Exception catch (e) {
-                    player.play(AssetSource('detected-error.mp3'));
-                    widget._viewModel.setError(e.toString());
-                    return false;
-                  }
-
-                  player.play(AssetSource('detected-success.mp3'));
-
-                  return true;
-                },
-              ),
+                  },
+                  onError: (error) {
+                    widget._viewModel.setError("NFC tag stream error: $error");
+                  },
+                )
+              else
+                CameraScanner(
+                  onDetect: (code) async {
+                    try {
+                      if (isUetsQrFormat(code)) {
+                        widget._viewModel.handleEntityId(
+                          entityIdFromCode(code),
+                        );
+                      } else {
+                        widget._viewModel.handleCode(code);
+                      }
+                      widget._viewModel.clearError();
+                      player.play(AssetSource('detected-success.mp3'));
+                      return true;
+                    } on Exception catch (e) {
+                      player.play(AssetSource('detected-error.mp3'));
+                      widget._viewModel.setError(e.toString());
+                      return false;
+                    }
+                  },
+                ),
 
               if (widget._viewModel.scannedEntityDisplay != null)
                 Padding(

@@ -11,20 +11,21 @@ const animationDuration = Duration(milliseconds: 300);
 
 enum AnimationState { success, error, none }
 
-class Scanner extends StatefulWidget {
-  const Scanner({super.key, required this.onDetect});
+class CameraScanner extends StatefulWidget {
+  const CameraScanner({super.key, required this.onDetect});
 
   final Future<bool> Function(String) onDetect;
 
   @override
-  State<Scanner> createState() => _ScannerState();
+  State<CameraScanner> createState() => _CameraScannerState();
 }
 
-class _ScannerState extends State<Scanner> {
+class _CameraScannerState extends State<CameraScanner> {
   final controller = MobileScannerController(
     torchEnabled: defaultIsTorchOn,
     detectionTimeoutMs: detectionTimeoutMs,
     detectionSpeed: DetectionSpeed.normal,
+    autoStart: false,
   );
 
   bool isTorchOn = defaultIsTorchOn;

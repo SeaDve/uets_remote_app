@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   audioplayers: ^6.4.0
-  mobile_scanner: ^6.0.7
+  mobile_scanner: ^7.0.1
   provider: ^6.1.5
   web_socket_channel: ^3.0.3
   network_info_plus: ^6.1.4
