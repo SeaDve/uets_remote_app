@@ -1,5 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'main.dart' show player;
 import 'camera_scanner.dart';
@@ -131,14 +132,18 @@ class _HomeState extends State<Home> {
                 )
               else
                 CameraScanner(
-                  onDetect: (code) async {
+                  onDetect: (code, format) async {
                     try {
-                      if (isUetsQrFormat(code)) {
-                        widget._viewModel.handleEntityId(
-                          entityIdFromCode(code),
-                        );
+                      if (format == BarcodeFormat.qrCode) {
+                        if (isUetsQrFormat(code)) {
+                          widget._viewModel.handleEntityId(
+                            entityIdFromUetsQrCodeFormat(code),
+                          );
+                        } else {
+                          widget._viewModel.handleQrCode(code);
+                        }
                       } else {
-                        widget._viewModel.handleCode(code);
+                        widget._viewModel.handleEntityId(code);
                       }
                       widget._viewModel.clearError();
                       player.play(AssetSource('detected-success.mp3'));
@@ -167,6 +172,22 @@ class _HomeState extends State<Home> {
                   ),
                 ),
 
+              if (widget._viewModel.scannedQrCode != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    spacing: 5,
+                    children: [
+                      const Text('Last Scanned QR Code:'),
+                      SelectableText(
+                        widget._viewModel.scannedQrCode!,
+                        style: const TextStyle(fontSize: 18),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+
               if (widget._viewModel.isAskingForPossessor) ...[
                 if (widget._viewModel.scannedPossessorDisplay != null)
                   Padding(
@@ -175,15 +196,17 @@ class _HomeState extends State<Home> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       spacing: 10,
                       children: [
-                        Column(
-                          children: [
-                            const Text('Scanned Possessor:'),
-                            SelectableText(
-                              widget._viewModel.scannedPossessorDisplay!,
-                              style: const TextStyle(fontSize: 18),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                        Flexible(
+                          child: Column(
+                            children: [
+                              const Text('Scanned Possessor:'),
+                              SelectableText(
+                                widget._viewModel.scannedPossessorDisplay!,
+                                style: const TextStyle(fontSize: 18),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
                         ),
                         IconButton.filledTonal(
                           icon: const Icon(Icons.backspace, size: 18),
@@ -248,7 +271,7 @@ class _HomeState extends State<Home> {
   }
 }
 
-String entityIdFromCode(String code) {
+String entityIdFromUetsQrCodeFormat(String code) {
   if (!code.startsWith("UETS:")) {
     throw Exception("Invalid UETS QR code format or prefix");
   }
@@ -258,7 +281,7 @@ String entityIdFromCode(String code) {
 
 bool isUetsQrFormat(String code) {
   try {
-    entityIdFromCode(code);
+    entityIdFromUetsQrCodeFormat(code);
     return true;
   } catch (e) {
     return false;

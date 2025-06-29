@@ -41,6 +41,7 @@ class HomeViewModel extends ChangeNotifier {
   String? _ipAddress;
   String? _scannedEntityId;
   String? _scannedPossessor;
+  String? _scannedQrCode;
   String? _error;
 
   bool _isAskingForPossessor = false;
@@ -80,6 +81,8 @@ class HomeViewModel extends ChangeNotifier {
       return '${entity.name} ($possessor)';
     }
   }
+
+  String? get scannedQrCode => _scannedQrCode;
 
   String? get error => _error;
 
@@ -183,6 +186,7 @@ class HomeViewModel extends ChangeNotifier {
 
       _scannedEntityId = null;
       _scannedPossessor = null;
+      _scannedQrCode = null;
       _isAskingForPossessor = false;
       notifyListeners();
     }
@@ -191,6 +195,7 @@ class HomeViewModel extends ChangeNotifier {
   void cancelAskingForPossessor() {
     _scannedEntityId = null;
     _scannedPossessor = null;
+    _scannedQrCode = null;
     _isAskingForPossessor = false;
     notifyListeners();
   }
@@ -246,6 +251,7 @@ class HomeViewModel extends ChangeNotifier {
     }
 
     _scannedEntityId = entityId;
+    _scannedQrCode = null;
     notifyListeners();
 
     if (!_isAskingForPossessor) {
@@ -253,21 +259,28 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
-  void handleCode(String code) {
-    if (code.isEmpty) {
+  void handleQrCode(String qrCode) {
+    if (qrCode.isEmpty) {
       throw Exception("Empty code");
     }
 
     if (_isAskingForPossessor) {
-      throw Exception(
-        "Cannot use code as possessor, please scan a possessor id.",
-      );
+      try {
+        final entityId = entityIdFromQrifyingCea(qrCode);
+        handleEntityId(entityId);
+        return;
+      } catch (e) {
+        throw Exception(
+          "Cannot use QR Code as possessor, please scan a possessor id.",
+        );
+      }
     }
 
-    _scannedEntityId = code;
+    _scannedQrCode = qrCode;
+    _scannedEntityId = null;
     notifyListeners();
 
-    _broadcastCode(code);
+    _broadcastQrCode(qrCode);
   }
 
   void _broadcastEntity(String entityId, List<(String, Object)> dataFields) {
@@ -283,7 +296,17 @@ class HomeViewModel extends ChangeNotifier {
     );
   }
 
-  void _broadcastCode(String code) {
-    _webSocket?.add(jsonEncode({"Code": code}));
+  void _broadcastQrCode(String qrCode) {
+    _webSocket?.add(jsonEncode({"Code": qrCode}));
   }
+}
+
+String entityIdFromQrifyingCea(String code) {
+  final substrings = code.split('_');
+
+  if (substrings.length != 4) {
+    throw Exception("Invalid QR code format");
+  }
+
+  return substrings[1];
 }

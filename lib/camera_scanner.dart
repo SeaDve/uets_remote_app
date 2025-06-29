@@ -14,7 +14,7 @@ enum AnimationState { success, error, none }
 class CameraScanner extends StatefulWidget {
   const CameraScanner({super.key, required this.onDetect});
 
-  final Future<bool> Function(String) onDetect;
+  final Future<bool> Function(String, BarcodeFormat) onDetect;
 
   @override
   State<CameraScanner> createState() => _CameraScannerState();
@@ -58,13 +58,19 @@ class _CameraScannerState extends State<CameraScanner> {
   }
 
   Future<void> onDetect(BarcodeCapture result) async {
-    final barcode = result.barcodes.firstOrNull?.rawValue;
+    final barcode = result.barcodes.firstOrNull;
 
     if (barcode == null) {
       return;
     }
 
-    final currentBarcode = barcode;
+    final rawValue = barcode.rawValue;
+
+    if (rawValue == null) {
+      return;
+    }
+
+    final currentBarcode = rawValue;
     final now = DateTime.now();
 
     if (currentBarcode == lastDetectedBarcode &&
@@ -78,7 +84,7 @@ class _CameraScannerState extends State<CameraScanner> {
     lastDetectionTime = now;
 
     final state =
-        await widget.onDetect(barcode)
+        await widget.onDetect(rawValue, barcode.format)
             ? AnimationState.success
             : AnimationState.error;
 
