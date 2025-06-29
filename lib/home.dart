@@ -34,6 +34,30 @@ class _HomeState extends State<Home> {
           mainAxisAlignment: MainAxisAlignment.center,
           spacing: 20,
           children: [
+            Text(
+              widget._viewModel.isConnected ? 'Connected' : 'Disconnected',
+              style: TextStyle(
+                color:
+                    widget._viewModel.isConnected ? Colors.green : Colors.red,
+                fontSize: 18,
+              ),
+            ),
+
+            Column(
+              spacing: 10,
+              children: [
+                Text(
+                  'Persons Inside: ${widget._viewModel.nPersonsInside} of ${widget._viewModel.nPersons}',
+                ),
+                Text(
+                  'Items Inside: ${widget._viewModel.nItemsInside} of ${widget._viewModel.nItems}',
+                ),
+                Text(
+                  'Vehicles Inside: ${widget._viewModel.nVehiclesInside} of ${widget._viewModel.nVehicles}',
+                ),
+              ],
+            ),
+
             if (widget._viewModel.error != null) ...[
               Text(
                 widget._viewModel.error!,
@@ -42,48 +66,22 @@ class _HomeState extends State<Home> {
               ),
               ElevatedButton(
                 onPressed: widget._viewModel.clearError,
-                child: Text("Dismiss"),
+                child: const Text("Dismiss"),
               ),
             ],
 
-            if (widget._viewModel.nInside != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  spacing: 5,
-                  children: [
-                    Text('Total Inside Count:'),
-                    SelectableText(
-                      widget._viewModel.nInside.toString(),
-                      style: const TextStyle(fontSize: 40),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
             Scanner(
-              onDetect: (result) async {
-                final code = result.barcodes.firstOrNull?.rawValue;
-
-                if (code == null) {
-                  player.play(AssetSource('detected-error.mp3'));
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Failed to scan barcode')),
-                    );
-                  }
-                  return false;
-                }
-
+              onDetect: (code) async {
                 try {
-                  widget._viewModel.setAndBroadcastCode(code);
+                  if (isUetsQrFormat(code)) {
+                    widget._viewModel.handleEntityId(entityIdFromCode(code));
+                  } else {
+                    widget._viewModel.handleCode(code);
+                  }
+                  widget._viewModel.clearError();
                 } on Exception catch (e) {
                   player.play(AssetSource('detected-error.mp3'));
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to detect: $e')),
-                    );
-                  }
+                  widget._viewModel.setError(e.toString());
                   return false;
                 }
 
@@ -93,21 +91,51 @@ class _HomeState extends State<Home> {
               },
             ),
 
-            if (widget._viewModel.scanned != null)
+            if (widget._viewModel.scannedEntityDisplay != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   spacing: 5,
                   children: [
-                    Text('Last Scanned:'),
+                    const Text('Last Scanned Entity ID:'),
                     SelectableText(
-                      widget._viewModel.scanned!,
+                      widget._viewModel.scannedEntityDisplay!,
                       style: const TextStyle(fontSize: 18),
                       textAlign: TextAlign.center,
                     ),
                   ],
                 ),
               ),
+
+            if (widget._viewModel.isAskingForPossessor) ...[
+              const Text(
+                'Please scan a possessor tag.',
+                style: TextStyle(fontSize: 18),
+                textAlign: TextAlign.center,
+              ),
+              if (widget._viewModel.scannedPossessorDisplay != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: [
+                      const Text('Scanned Possessor:'),
+                      SelectableText(
+                        widget._viewModel.scannedPossessorDisplay!,
+                        style: const TextStyle(fontSize: 18),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              if (widget._viewModel.canClearAndBroadcastPossessor)
+                ElevatedButton(
+                  onPressed: () {
+                    widget._viewModel.clearAndBroadcastEntityWithPossessor();
+                    player.play(AssetSource('detected-success.mp3'));
+                  },
+                  child: const Text("Confirm Possessor"),
+                ),
+            ],
 
             ElevatedButton(
               onPressed: () {
@@ -140,5 +168,22 @@ class _HomeState extends State<Home> {
         ),
       ),
     );
+  }
+}
+
+String entityIdFromCode(String code) {
+  if (!code.startsWith("UETS:")) {
+    throw Exception("Invalid UETS QR code format or prefix");
+  }
+
+  return code.substring(5);
+}
+
+bool isUetsQrFormat(String code) {
+  try {
+    entityIdFromCode(code);
+    return true;
+  } catch (e) {
+    return false;
   }
 }

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 const defaultIsTorchOn = false;
-const detectionTimeoutMs = 500;
+const detectionTimeoutMs = 1500;
 
 const animationDelay = Duration(milliseconds: 800);
 const animationDuration = Duration(milliseconds: 300);
@@ -14,7 +14,7 @@ enum AnimationState { success, error, none }
 class Scanner extends StatefulWidget {
   const Scanner({super.key, required this.onDetect});
 
-  final Future<bool> Function(BarcodeCapture) onDetect;
+  final Future<bool> Function(String) onDetect;
 
   @override
   State<Scanner> createState() => _ScannerState();
@@ -22,8 +22,9 @@ class Scanner extends StatefulWidget {
 
 class _ScannerState extends State<Scanner> {
   final controller = MobileScannerController(
-    detectionTimeoutMs: detectionTimeoutMs,
     torchEnabled: defaultIsTorchOn,
+    detectionTimeoutMs: detectionTimeoutMs,
+    detectionSpeed: DetectionSpeed.normal,
   );
 
   bool isTorchOn = defaultIsTorchOn;
@@ -33,6 +34,9 @@ class _ScannerState extends State<Scanner> {
   bool isAnimating = false;
   Timer? delayTimer;
   Timer? animationTimer;
+
+  String? lastDetectedBarcode;
+  DateTime? lastDetectionTime;
 
   @override
   void initState() {
@@ -52,7 +56,26 @@ class _ScannerState extends State<Scanner> {
     await controller.dispose();
   }
 
-  Future<void> onDetect(BarcodeCapture barcode) async {
+  Future<void> onDetect(BarcodeCapture result) async {
+    final barcode = result.barcodes.firstOrNull?.rawValue;
+
+    if (barcode == null) {
+      return;
+    }
+
+    final currentBarcode = barcode;
+    final now = DateTime.now();
+
+    if (currentBarcode == lastDetectedBarcode &&
+        lastDetectionTime != null &&
+        now.difference(lastDetectionTime!) <
+            Duration(milliseconds: detectionTimeoutMs)) {
+      return;
+    }
+
+    lastDetectedBarcode = currentBarcode;
+    lastDetectionTime = now;
+
     final state =
         await widget.onDetect(barcode)
             ? AnimationState.success
