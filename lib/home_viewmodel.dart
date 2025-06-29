@@ -88,8 +88,6 @@ class HomeViewModel extends ChangeNotifier {
   String? get error => _error;
 
   bool get isAskingForPossessor => _isAskingForPossessor;
-  bool get canClearAndBroadcastPossessor =>
-      _isAskingForPossessor && _scannedPossessor != null;
 
   int get nPersons => _entities.values.where((e) => e.isPerson).length;
   int get nPersonsInside =>
@@ -198,14 +196,33 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
-  void clearAndBroadcastEntityWithPossessor() {
-    if (canClearAndBroadcastPossessor) {
-      _broadcastEntity(_scannedEntityId!, [("Possessor", _scannedPossessor!)]);
+  void clearScannedPossessor() {
+    _scannedPossessor = null;
+    notifyListeners();
+  }
+
+  void confirmAskingForPossessor() {
+    if (_isAskingForPossessor) {
+      if (_scannedPossessor != null) {
+        _broadcastEntity(_scannedEntityId!, [
+          ("Possessor", _scannedPossessor!),
+        ]);
+      } else {
+        _broadcastEntity(_scannedEntityId!, []);
+      }
+
       _scannedEntityId = null;
       _scannedPossessor = null;
       _isAskingForPossessor = false;
       notifyListeners();
     }
+  }
+
+  void cancelAskingForPossessor() {
+    _scannedEntityId = null;
+    _scannedPossessor = null;
+    _isAskingForPossessor = false;
+    notifyListeners();
   }
 
   void setError(String message) {
@@ -228,13 +245,13 @@ class HomeViewModel extends ChangeNotifier {
     if (_isAskingForPossessor) {
       if (entity == null) {
         throw Exception(
-          "Cannot use this tag as possessor, it is not registered.",
+          "Cannot use this id as possessor, it is not registered.",
         );
       }
 
       if (!entity.isPerson) {
         throw Exception(
-          "Cannot use this tag as possessor, it is not associated to a person.",
+          "Cannot use this id as possessor, it is not associated to a person.",
         );
       }
 
@@ -273,7 +290,7 @@ class HomeViewModel extends ChangeNotifier {
 
     if (_isAskingForPossessor) {
       throw Exception(
-        "Cannot use code as possessor, please scan a possessor tag.",
+        "Cannot use code as possessor, please scan a possessor id.",
       );
     }
 
