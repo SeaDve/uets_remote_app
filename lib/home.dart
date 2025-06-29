@@ -1,5 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
 import 'package:uets_remote_app/main.dart' show player;
 import 'package:uets_remote_app/scanner.dart';
 import 'home_viewmodel.dart';
@@ -16,6 +17,23 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   bool _showDetails = false; // State to toggle visibility
+
+  @override
+  void initState() {
+    super.initState();
+
+    FlutterNfcKit.tagStream.listen((tag) {
+      final entityId = tag.id;
+
+      try {
+        widget._viewModel.handleEntityId(entityId);
+        widget._viewModel.clearError();
+      } catch (e) {
+        player.play(AssetSource('detected-error.mp3'));
+        widget._viewModel.setError("Error handling tag: $e");
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
