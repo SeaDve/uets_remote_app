@@ -149,16 +149,20 @@ class HomeViewModel extends ChangeNotifier {
               _webSocket?.close();
               _webSocket = null;
               _isConnected = false;
+              notifyListeners();
             },
             onError: (error) {
               setError("WebSocket error: $error");
               _webSocket?.close();
               _webSocket = null;
               _isConnected = false;
+              notifyListeners();
             },
           );
 
           _isConnected = true;
+          notifyListeners();
+
           _webSocket!.add(jsonEncode({"RequestAllEntityData": null}));
         }
       }
