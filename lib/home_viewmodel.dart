@@ -240,17 +240,10 @@ class HomeViewModel extends ChangeNotifier {
     }
 
     if (entity != null && entity.possessor == null) {
-      if (entity.isVehicle) {
-        if (entity.isOutside) {
-          _scannedPossessor = null;
-          _isAskingForPossessor = true;
-        }
-      }
-      if (entity.isItem) {
-        if (entity.isInside) {
-          _scannedPossessor = null;
-          _isAskingForPossessor = true;
-        }
+      if ((entity.isVehicle && entity.isOutside) ||
+          (entity.isItem && entity.isInside)) {
+        _scannedPossessor = null;
+        _isAskingForPossessor = true;
       }
     }
 
