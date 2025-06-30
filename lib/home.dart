@@ -1,8 +1,13 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:uets_remote_app/main.dart' show player;
-import 'package:uets_remote_app/scanner.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+
+import 'main.dart' show player;
+import 'camera_scanner.dart';
+import 'rfid_scanner.dart';
 import 'home_viewmodel.dart';
+
+enum ScanMode { nfc, camera }
 
 class Home extends StatefulWidget {
   final HomeViewModel _viewModel;
@@ -15,7 +20,11 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  bool _showDetails = false; // State to toggle visibility
+  bool _showDetails = false;
+
+  final isNfcEnabledNotifier = ValueNotifier<bool>(true);
+
+  ScanMode _scanMode = ScanMode.nfc;
 
   @override
   Widget build(BuildContext context) {
@@ -28,117 +37,253 @@ class _HomeState extends State<Home> {
     };
 
     return Scaffold(
-      appBar: AppBar(title: const Text('NFC Reader')),
+      appBar: AppBar(title: const Text('TRACE Scanner')),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          spacing: 20,
-          children: [
-            if (widget._viewModel.error != null) ...[
-              Text(
-                widget._viewModel.error!,
-                style: TextStyle(color: Colors.red),
-                textAlign: TextAlign.center,
-              ),
-              ElevatedButton(
-                onPressed: widget._viewModel.clearError,
-                child: Text("Dismiss"),
-              ),
-            ],
-
-            if (widget._viewModel.nInside != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  spacing: 5,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(0, 0, 0, 48),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            spacing: 20,
+            children: [
+              AnimatedCrossFade(
+                duration: const Duration(milliseconds: 300),
+                crossFadeState:
+                    _showDetails
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                firstChild: const SizedBox.shrink(), // Empty widget when hidden
+                secondChild: Column(
+                  spacing: 10,
                   children: [
-                    Text('Total Inside Count:'),
-                    SelectableText(
-                      widget._viewModel.nInside.toString(),
-                      style: const TextStyle(fontSize: 40),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            Scanner(
-              onDetect: (result) async {
-                final code = result.barcodes.firstOrNull?.rawValue;
-
-                if (code == null) {
-                  player.play(AssetSource('detected-error.mp3'));
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Failed to scan barcode')),
-                    );
-                  }
-                  return false;
-                }
-
-                try {
-                  widget._viewModel.setAndBroadcastCode(code);
-                } on Exception catch (e) {
-                  player.play(AssetSource('detected-error.mp3'));
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to detect: $e')),
-                    );
-                  }
-                  return false;
-                }
-
-                player.play(AssetSource('detected-success.mp3'));
-
-                return true;
-              },
-            ),
-
-            if (widget._viewModel.scanned != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  spacing: 5,
-                  children: [
-                    Text('Last Scanned:'),
-                    SelectableText(
-                      widget._viewModel.scanned!,
+                    const Text('Server IP Address:'),
+                    Text(
+                      widget._viewModel.ipAddress ?? 'No IP address',
                       style: const TextStyle(fontSize: 18),
-                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
               ),
 
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _showDetails = !_showDetails; // Toggle visibility
-                });
-              },
-              child: Text(_showDetails ? 'Hide Details' : 'Show Details'),
-            ),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _showDetails = !_showDetails; // Toggle visibility
+                  });
+                },
+                child: Text(
+                  widget._viewModel.isConnected ? 'Connected' : 'Disconnected',
+                  style: TextStyle(
+                    color:
+                        widget._viewModel.isConnected
+                            ? Colors.green
+                            : Colors.red,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
 
-            AnimatedCrossFade(
-              duration: const Duration(milliseconds: 300),
-              crossFadeState:
-                  _showDetails
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-              firstChild: const SizedBox.shrink(), // Empty widget when hidden
-              secondChild: Column(
+              Column(
                 spacing: 10,
                 children: [
-                  const Text('Server IP Address:'),
                   Text(
-                    widget._viewModel.ipAddress ?? 'No IP address',
-                    style: const TextStyle(fontSize: 18),
+                    'Persons Inside: ${widget._viewModel.nPersonsInside} of ${widget._viewModel.nPersons}',
+                  ),
+                  Text(
+                    'Items Inside: ${widget._viewModel.nItemsInside} of ${widget._viewModel.nItems}',
+                  ),
+                  Text(
+                    'Vehicles Inside: ${widget._viewModel.nVehiclesInside} of ${widget._viewModel.nVehicles}',
                   ),
                 ],
               ),
-            ),
-          ],
+
+              SegmentedButton(
+                segments: const [
+                  ButtonSegment(value: ScanMode.nfc, label: Text('NFC')),
+                  ButtonSegment(value: ScanMode.camera, label: Text('Camera')),
+                ],
+                selected: {_scanMode},
+                onSelectionChanged: (newSelection) {
+                  setState(() {
+                    _scanMode = newSelection.first;
+                    isNfcEnabledNotifier.value = _scanMode == ScanMode.nfc;
+                  });
+                },
+              ),
+
+              if (_scanMode == ScanMode.nfc)
+                RfidScanner(
+                  isEnabledNotifier: isNfcEnabledNotifier,
+                  onDetect: (entityId) {
+                    try {
+                      widget._viewModel.handleEntityId(entityId);
+                      widget._viewModel.clearError();
+                      player.play(AssetSource('detected-success.mp3'));
+                      return true;
+                    } catch (e) {
+                      player.play(AssetSource('detected-error.mp3'));
+                      widget._viewModel.setError("Error handling tag: $e");
+                      return false;
+                    }
+                  },
+                  onError: (error) {
+                    widget._viewModel.setError("NFC tag stream error: $error");
+                  },
+                )
+              else
+                CameraScanner(
+                  onDetect: (code, format) async {
+                    try {
+                      if (format == BarcodeFormat.qrCode) {
+                        if (isUetsQrFormat(code)) {
+                          widget._viewModel.handleEntityId(
+                            entityIdFromUetsQrCodeFormat(code),
+                          );
+                        } else {
+                          widget._viewModel.handleQrCode(code);
+                        }
+                      } else {
+                        widget._viewModel.handleEntityId(code);
+                      }
+                      widget._viewModel.clearError();
+                      player.play(AssetSource('detected-success.mp3'));
+                      return true;
+                    } on Exception catch (e) {
+                      player.play(AssetSource('detected-error.mp3'));
+                      widget._viewModel.setError(e.toString());
+                      return false;
+                    }
+                  },
+                ),
+
+              if (widget._viewModel.scannedEntityDisplay != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    spacing: 5,
+                    children: [
+                      const Text('Last Scanned Entity ID:'),
+                      SelectableText(
+                        widget._viewModel.scannedEntityDisplay!,
+                        style: const TextStyle(fontSize: 18),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+
+              if (widget._viewModel.scannedQrCode != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    spacing: 5,
+                    children: [
+                      const Text('Last Scanned QR Code:'),
+                      SelectableText(
+                        widget._viewModel.scannedQrCode!,
+                        style: const TextStyle(fontSize: 18),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+
+              if (widget._viewModel.isAskingForPossessor) ...[
+                if (widget._viewModel.scannedPossessorDisplay != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      spacing: 10,
+                      children: [
+                        Flexible(
+                          child: Column(
+                            children: [
+                              const Text('Scanned Possessor:'),
+                              SelectableText(
+                                widget._viewModel.scannedPossessorDisplay!,
+                                style: const TextStyle(fontSize: 18),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton.filledTonal(
+                          icon: const Icon(Icons.backspace, size: 18),
+                          onPressed: () {
+                            widget._viewModel.clearScannedPossessor();
+                          },
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  const Text(
+                    'Please scan a possessor tag.',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                Row(
+                  spacing: 10,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () {
+                        widget._viewModel.confirmAskingForPossessor();
+                        player.play(AssetSource('detected-success.mp3'));
+                      },
+                      child: Text(
+                        widget._viewModel.scannedPossessorDisplay == null
+                            ? 'Confirm without Possessor'
+                            : 'Confirm Possessor',
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        widget._viewModel.cancelAskingForPossessor();
+                      },
+                      child: Text('Cancel'),
+                    ),
+                  ],
+                ),
+              ],
+
+              if (widget._viewModel.error != null) ...[
+                Text(
+                  widget._viewModel.error!,
+                  style: TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+                ElevatedButton(
+                  onPressed: widget._viewModel.clearError,
+                  child: const Text("Dismiss"),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
+  }
+}
+
+String entityIdFromUetsQrCodeFormat(String code) {
+  if (!code.startsWith("UETS:")) {
+    throw Exception("Invalid UETS QR code format or prefix");
+  }
+
+  return code.substring(5);
+}
+
+bool isUetsQrFormat(String code) {
+  try {
+    entityIdFromUetsQrCodeFormat(code);
+    return true;
+  } catch (e) {
+    return false;
   }
 }

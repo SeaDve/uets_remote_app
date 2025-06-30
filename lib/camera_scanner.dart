@@ -4,26 +4,28 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 const defaultIsTorchOn = false;
-const detectionTimeoutMs = 500;
+const detectionTimeoutMs = 1500;
 
 const animationDelay = Duration(milliseconds: 800);
 const animationDuration = Duration(milliseconds: 300);
 
 enum AnimationState { success, error, none }
 
-class Scanner extends StatefulWidget {
-  const Scanner({super.key, required this.onDetect});
+class CameraScanner extends StatefulWidget {
+  const CameraScanner({super.key, required this.onDetect});
 
-  final Future<bool> Function(BarcodeCapture) onDetect;
+  final Future<bool> Function(String, BarcodeFormat) onDetect;
 
   @override
-  State<Scanner> createState() => _ScannerState();
+  State<CameraScanner> createState() => _CameraScannerState();
 }
 
-class _ScannerState extends State<Scanner> {
+class _CameraScannerState extends State<CameraScanner> {
   final controller = MobileScannerController(
-    detectionTimeoutMs: detectionTimeoutMs,
     torchEnabled: defaultIsTorchOn,
+    detectionTimeoutMs: detectionTimeoutMs,
+    detectionSpeed: DetectionSpeed.normal,
+    autoStart: false,
   );
 
   bool isTorchOn = defaultIsTorchOn;
@@ -33,6 +35,9 @@ class _ScannerState extends State<Scanner> {
   bool isAnimating = false;
   Timer? delayTimer;
   Timer? animationTimer;
+
+  String? lastDetectedBarcode;
+  DateTime? lastDetectionTime;
 
   @override
   void initState() {
@@ -52,9 +57,34 @@ class _ScannerState extends State<Scanner> {
     await controller.dispose();
   }
 
-  Future<void> onDetect(BarcodeCapture barcode) async {
+  Future<void> onDetect(BarcodeCapture result) async {
+    final barcode = result.barcodes.firstOrNull;
+
+    if (barcode == null) {
+      return;
+    }
+
+    final rawValue = barcode.rawValue;
+
+    if (rawValue == null) {
+      return;
+    }
+
+    final currentBarcode = rawValue;
+    final now = DateTime.now();
+
+    if (currentBarcode == lastDetectedBarcode &&
+        lastDetectionTime != null &&
+        now.difference(lastDetectionTime!) <
+            Duration(milliseconds: detectionTimeoutMs)) {
+      return;
+    }
+
+    lastDetectedBarcode = currentBarcode;
+    lastDetectionTime = now;
+
     final state =
-        await widget.onDetect(barcode)
+        await widget.onDetect(rawValue, barcode.format)
             ? AnimationState.success
             : AnimationState.error;
 
